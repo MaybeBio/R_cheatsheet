@@ -1,0 +1,2781 @@
+---
+title: '**玩转数据120题——R语言tidyverse版本(2023版)**'
+author: "张敬信"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    df_print: paged
+  urlcolor: blue
+  linkcolor: red
+  pdf_document:
+    latex_engine: xelatex
+header-includes: \usepackage{ctex}
+---
+
+```{r, setup, include=FALSE}
+knitr::opts_chunk$set(
+  warning = FALSE,
+  message = FALSE)
+```
+
+```{r include=FALSE}
+options(tibble.print_max = 6, tibble.print_min = 6)
+library(showtext)
+showtext_auto()
+```
+
+**关于作者**：
+
+- 张敬信，哈尔滨商业大学，数学与应用数学，副教授
+- 热爱学习，热爱编程，热爱 R 语言
+- 我的代表作《R 语言编程：基于 tidyverse》已于 2023 年 2 月正式上市，京东、天猫、当当等各大平台有售：
+
+```{r echo=FALSE, out.width="55%", fig.align="center"}
+# knitr::include_graphics("MyRbook.png")
+```
+
+- 也有免费学习资源：[课件和鲸在线版（可调试代码）](https://www.heywhale.com/mw/project/641dc0d4feb4fe02b2ce72f7) ，[知乎交流平台](https://www.zhihu.com/column/c_1375580759047237632)，欢迎您的阅读品鉴、交流讨论！
+
+- 该书的 QQ 读者1群、2群：875664831、222427909, 交流、答疑，欢迎您的加入！
+
+\newpage
+
+**玩转数据120题**来自刘早起的 *Pandas 进阶修炼 120 题*，涵盖了数据处理、计算、可视化等常用操作，希望通过 120 道精心挑选的习题吃透 pandas.
+ 
+后来，中山大学博士陈熹提供了 R 语言版本。我[^ft1][^ft2][^ft3]再来个更能体现 R 语言最新技术的 tidyverse 版本。
+
+关于**更新版**：感谢`@鼠大米`对部分解法不够tidyverse的题目，提供了新解法(再加上我稍微修正)，主要是加入更好用的新函数`slice_*()`。2023年，部分题目又做了一些改进。
+
+
+[^ft1]: 我的 Github: https://github.com/zhjx19  
+[^ft2]: 我的知乎: https://www.zhihu.com/people/huc_zhangjingxin
+[^ft3]: 我的和鲸项目（包含本文件的在线可调试版）：https://www.heywhale.com/home/user/profile/5d4a42a636e903002c0e0c66/project
+
+
+
+- 先加载包：
+
+```{r}
+library(tidyverse)
+```
+
+
+## Part I 入门
+
+### 题目1（创建数据框）：将下面的字典创建为DataFrame
+```data = {"grammer": ["Python","C","Java","GO",np.nan,"SQL","PHP","Python"], "score": [1,2,np.nan,4,5,6,7,10]}```
+
+**难度：**$\star$
+
+**代码及运行结果：**
+```{r}
+df1<-data.frame(grammer=c("Python","C","Java","GO","np.nan","SQL","PHP","Python"),
+                score=c(1,2,"np.nan",4,5,6,7,10))
+df2<-tibble(grammer=c("Python","C","Java","GO","np.nan","SQL","PHP","Python"),
+                score=c(1,2,"np.nan",4,5,6,7,10))
+df = tibble(
+  grammer = c("Python","C","Java","GO", NA,"SQL","PHP","Python"), 
+  score = c(1,2,NA,4,5,6,7,10))
+df
+```
+
+- **补充：**按行录入式创建数据框
+```{r}
+#传统的方式是按列录入数据，按行就是转置也就是transpose(tr+ibble)
+df3<-tribble(~grammer,~score,
+             "Python",1,
+             "C",2,
+             "Java",NA,
+             "GO",4,
+             NA,5,
+             "SQL",6,
+             "PHP",7,
+             "Python",10)
+df3
+```
+
+
+### 问题2（筛选行）：提取含有字符串"Python"的行
+
+**难度：**$\star$
+
+**代码及运行结果：**
+```{r}
+#列选select行滤filter,大前提不能错，不会用到select
+#土方法，相当于穷举每列var+数据类型
+df%>%filter(
+  df$grammer=="Python" | df$score=="Python")
+
+#另外正式的方法就是使用正则表达式
+#使用dplyr包中的filter函数结合stringr包中的字符串处理函数,和上面一样穷举，把每1列都用来筛选——这里还是只能每1列单独列出来逻辑筛选
+df%>%filter(str_detect(grammer,"Python") | str_detect(score,"Python"))
+```
+
+ 
+### 题目3（查看列名）：输出df的所有列名
+
+**难度：**$\star$
+
+**代码及运行结果：**
+
+```{r}
+colnames(df)
+names(df)
+```
+
+
+ 
+### 题目4（修改列名）：修改第2列列名为"popularity"
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+```{r}
+colnames(df) #"grammer" "score" 
+#注意mutate是新增1列，不是重赋值
+df%>%mutate(popularity=score)%>%select(grammer,popularity)
+
+#rename用于变量重命名,新名换旧名
+df<-df%>%rename(popularity=score)
+```
+
+
+### 题目5（统计频数）：统计grammer列中每种编程语言出现的次数
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#对列进行统计，大方向用summarise,且是对编程语言分类的应该进行分组，联想group_by常与summarise搭配
+df%>%group_by(grammer)%>%summarise(number=n()) #n()统计尺寸大小
+#在分组之前可以进行因子化
+#df$grammer<-factor(df$grammer)
+
+# df %>% count(a, b) is roughly equivalent to df %>% group_by(a, b) %>% summarise(n = n())
+```
+
+```{r}
+df %>%
+  count(grammer) 
+```
+
+
+### 题目6（缺失值处理）：将空值用上下值的平均值填充
+
+**难度：**$\star\star\star$
+
+**代码及运行结果：**
+
+
+```{r}
+#缺失值处理drop_na,fill,replace_na
+#固定填充不指定某个值，fill先看上面的值，上面有值就用上面，就不看下面的
+df%>%fill(colnames(df))
+#本质即fill(c(grammer,score))
+
+#指定填充某个值，使用replace_na，指定填充法则每列var分别该怎么填充
+#但是怎么指定上下值，如果上下有一行值缺失呢？此处使用全列均值，注意此处不要将grammer修改为因子
+df%>%replace_na(list(grammer="unknown-language",popularity=mean(df$popularity,na.rm=T)))
+```
+
+```{r}
+#na.approx()：用于将缺失值进行线性插值，根据前后的非缺失值进行估计——时间序列数据处理，但是第1列还是没有处理
+df = df %>%
+  mutate(popularity = zoo::na.approx(popularity))
+df
+```
+
+**注：** tidyr包提供了`fill()`函数，可以用前值或后值插补缺失值。
+
+### 题目7（筛选行）：提取popularity列中值大于3的行
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+
+```{r}
+df%>%filter(popularity>3)
+#列选行滤
+```
+
+```{r}
+df %>%
+  filter(popularity > 3)
+```
+
+
+### 题目8（数据去重）：按grammer列进行去重
+
+**难度：** $\star \star$
+
+**代码及运行结果：**
+
+```{r}
+df%>%
+  distinct(grammer,.keep_all = TRUE)
+#对于重复的观测，保留第1行即第1个观测
+```
+
+```{r}
+df %>%
+  distinct(grammer, .keep_all = TRUE)
+```
+
+
+### 题目9（数据计算）：计算popularity列平均值
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+df %>%select(popularity)%>%
+  summarise(mean_of_popularity=mean(popularity))
+#summarise是直接得到1个新数据，所以不需要提前选列
+```
+
+```{r}
+df %>%
+  summarise(avg = mean(popularity))
+
+
+```
+
+ 
+### 题目10（格式转换）：将grammer列转换为序列 
+
+**难度：**$\star$
+
+**代码及运行结果：**
+
+```{r}
+#转换为序列是指取出第1列,转换为向量,参考tibble以及df中取出几行几列的方法以及效果（数据类型）
+df[["grammer"]]
+df$grammer
+df %>% 
+  pull(grammer)
+#pull类似于$取出变量列，主要是可以用在管道里，例如
+df %>% 
+  pull(grammer)%>%length() #8
+```
+
+```{r}
+df %>% 
+  pull(grammer)    # 或者df$grammer
+```
+
+**注：** R从数据框中提取出来就是字符向量。
+
+
+### 题目11（数据保存）：将数据框保存为Excel
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+```{r}
+write_csv(df,"df.csv")
+
+library(writexl)
+write_xlsx(df,"df.xlsx")
+#或者直接转换为csv文件,可以直接使用readr中的输出函数，无需加载readxl或writexl
+
+```
+
+```{r}
+# writexl::write_xlsx(df, "data/filename.xlsx")
+```
+
+
+### 题目12（数据查看）：查看数据的行数列数
+
+**难度：**$\star$
+
+**代码及运行结果：**
+
+```{r}
+#直接用dim
+dim(df)
+
+df%>%row()
+
+#或将行名以及列名向量传递出来，再计算长度
+df%>%rownames()%>%length()
+df%>%colnames()%>%length()
+```
+
+```{r}
+dim(df)
+```
+
+
+### 题目13（筛选行）：提取popularity列值大于3小于7的行
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+```{r}
+#列选行滤
+df%>%filter(popularity > 3 & popularity < 7)
+```
+```{r}
+df %>%
+  filter(popularity > 3 & popularity < 7)
+```
+
+
+### 题目14（调整列位置）：交互两列的位置
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+```{r}
+#列选行滤
+df %>% select(c(2,1))
+df %>% select(c(popularity,grammer))
+```
+
+```{r}
+df %>%
+  select(popularity, grammer)
+
+#select固然可以随意更改位置，但是需要列出所有列var，relocate可以随意更改几个列var之间位置而无需列出所有列var
+df%>%relocate(popularity,.before = grammer) #把popularity列放在grammer列前面
+df%>%relocate(grammer,.after = popularity)
+#把grammer列放在popularity列后面
+```
+
+**注：** 可配合`everything()`放置“其余列”，更强大的调整列位置的函数是dplyr1.0将提供的`relocate()`.
+
+### 题目15（筛选行）：提取popularity列最大值所在的行
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+```{r}
+#列选行滤
+df%>%filter(popularity == max(popularity))
+
+#或者用slice_max以及slice_min寻取含有某列max、min值的行
+
+```
+
+```{r}
+df %>%
+  slice_max(popularity, n = 1)   
+# 或者
+# df %>%
+#  filter(popularity == max(popularity))
+```
+
+
+### 题目16（查看数据）：查看最后几行数据
+
+**难度：**$\star$
+
+**代码及运行结果：**
+```{r}
+#查看倒数2行
+df%>%slice_tail(n=2)
+#查看正数2行
+df%>%slice_head(n=2)
+
+#或者使用head等传统函数
+df%>%head(2)
+df%>%tail(2)
+
+#或者考虑到tibble没有行名，只有数字序号，也就是可以在length上做计算
+df%>%filter(rownames(df)==length(df$popularity)) 
+#查看最后一行，注意不要使用length(df),如果直接对tibble用这个只会显示列var数目也就是列数，只有对某个列var做计算，才能取出行数，这里其实也是对题12的解法
+
+#使用判等
+df%>%filter(rownames(df)==((length(df$popularity)-1):length(df$popularity)))  
+
+#改用逻辑判断，即使用length构造倒数序列号的向量，再用rownames的序列向量去逻辑匹配，也能实现查看倒数2行，同样使用rownames查看正数几行就更简单了
+df%>%filter(rownames(df) %in% ((length(df$popularity)-1):length(df$popularity)))
+```
+
+```{r}
+df %>% 
+  slice_tail(n = 6)   # 或者tail(df, 6)
+```
+
+**注：** 此外，`dplyr`包还提供了`slice_head()`查看前`n`行或前某比例的行，`slice_sample()`随机查看`n`行或某比例的行。
+
+### 题目17（修改数据）：删除最后一行数据
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+```{r}
+#1,取出最后1行，再删除
+#取出最后1行的数据有很多种，1种是利用rownames(tibble)直接就是序号表示(tibble没有行名，只能显示数字序号)
+df%>%filter(rownames(df)==length(popularity))  #或者像题16中length使用df$popularity
+df%>%filter(rownames(df)==length(popularity)-1) #这是查看倒数第2行，相比较slice_tail查看的是倒数全部2行
+
+#或者用题16中的slice_tail()
+df%>%slice_tail(n=1)
+
+#2,但是选出了最后1行不知道如何删除，只知道行号以及列号如果是数字可以-取反
+df%>%slice_tail(n=-1) #n=1是取最后1行，-1是取非最后1行——》事实是删除正数1行,也就是倒数7行
+df%>%slice_tail(n=-2) #取非最后2行，即删除最后2行不显示——》事实是删除正数2行，也就是倒数6行
+
+df%>%slice_head(n=-1) #事实是删除倒数1行，也就是正数7行
+#感觉上面的处理还是陷入到了下标里面，-某列≠ n=-(某列的下标)
+#前者是-取反的逻辑，后者已经在n=赋值语句中了，应该就是纯粹的下标，至于负值的下标，参考python中的处理?——》！！！！！还是直接看文档，-n表示对应length()-n
+#那么前面tail以及head的功能，从length-n意义上看也还是符合倒数/正数的意义
+
+#3,至于rownames是1个向量，所以可以用行序号赋值1:length等保留要留下的行号，也就是题16中的思路
+df%>%filter(rownames(df)==c(1:(length(df$popularity)-1))) #判等
+df%>%filter(rownames(df) %in% c(1:(length(df$popularity)-1))) #逻辑判在不在
+
+#总而言之，删除最后1行，也就是保留正数1:倒数第2行;
+#删除第n行，也就是保留1:n-1 + n+1:最后1行，都可以用16/17的思路去处理
+```
+
+```{r}
+#4,slice函数可以直接使用-取反，因为slice是对行做切片，切片就可以-
+df %>%
+  slice(-n())
+
+df %>% slice(-length(df$popularity)) #注意别用length(df),显示的是tibble的列数，得选取其中1个列var
+```
+
+
+### 题目18（修改数据）：添加一行数据："Perl", 6
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#1种方法就是使用df的老方法join，rbind
+row<-c("Perl", 6) #直接就可以使用合并，合并之后就是tibble
+rbind(df,row)
+
+#如果不放心，想要转换为tibble数据结构
+row<-tibble(grammer="Perl", popularity=6)
+rbind(df,row)
+
+#增加新列直接$赋值即可
+```
+
+```{r}
+df %>% 
+  add_row(grammer = "Perl", popularity = 6)
+#同样也有add_col
+
+
+# 或者
+# df %>%
+#   bind_rows(tibble(grammer = "Perl", popularity = 6)) 
+#上面本质上就是rbind，同理cbind也有对应
+```
+
+ 
+### 题目19（数据整理）：对数据按popularity列值从到大到小排序
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+```{r}
+#按照阅读习惯排序都是从上到下（没有人知道数据有多长的时候会从倒数反过来看），默认正序/升序
+df%>%
+  arrange(popularity) #升序
+df %>%
+  arrange(-popularity) #降序
+```
+
+
+```{r}
+df %>%
+  arrange(-popularity)  
+```
+
+**注：** 默认从小到大排序。
+
+### 题目20（字符统计）：统计grammer列每个字符串的长度
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+```{r}
+#列选行滤，因为要对每个字符串处理，所以实际上是循环，而且结果看样子是字典也就是键值对输出，应该用
+#法1是取出第1列，然后对行计算字符串长度,此处使用stringr::str_length,也是在tidyverse包中
+df%>%select(grammer)%>%apply(1,str_length)
+
+df%>%lapply(str_length)
+df%>%select(grammer)%>%lapply(str_length)
+
+#注意，只要数据结构是tibble，对tibble使用length都是取列数
+```
+
+```{r}
+#但是上面输出结果没有配对成键值对，所以还是建议在原数据上操作
+df %>%
+  mutate(strlen = str_length(grammer)) %>%
+  select(grammer,strlen)
+```
+
+
+## Part II 基础
+
+### 题目21（读取数据）：读取本地Excel数据
+
+**难度：**$\star$
+
+**代码及运行结果：**
+
+```{r}
+#readr的read_csv实际上不能直接读取csv文件
+df<-read_csv("C:\\Users\\ZHT\\Downloads\\21-50数据.xlsx")
+
+#或者用readxl的read_excel以及read_xlsx
+library("readxl")
+df<-read_excel("C:\\Users\\ZHT\\Downloads\\21-50数据.xlsx",col_names = TRUE)
+df<-read_xlsx("C:\\Users\\ZHT\\Downloads\\21-50数据.xlsx",col_names = TRUE)
+
+```
+
+```{r}
+#df = readxl::read_xlsx("data/21-50数据.xlsx")
+df
+```
+
+
+### 题目22（查看数据）：查看df数据的前几行
+
+**难度：**$\star$
+
+**代码及运行结果：**
+
+```{r}
+head(df, 5)   
+```
+ 
+
+### 题目23（数据计算）：将salary列数据转换为最大值与最小值的平均值
+
+**难度：**$\star\star\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#1，salary列首先是chr，不能简单转换为数字，要获取min以及max字符串再转换为数字，应该使用字符串函数stringr里,而且是类似split操作，可以查看stringr的cheatsheet里有没有split&join操作的函数
+
+# df%>%select(salary)%>%str_split()#后续怎么处理，应该是正则式处理
+
+
+#2，或者使用separate，将1个变量中包含的2个变量的数据拆分开来
+df%>%separate(salary,c("min","max"),sep="-") #问题是这里拆分出来的是20k以及35k，还是chr,首先要清理掉k字符，将min以及max列转换为数字;仔细分析这里的处理，是对旧列数据进行处理产生新列，那可以使用mutate，查看mutate有没有什么split的操作
+
+#parse_number函数将解析它找到的第一个数字，删除第一个数字之前的任何非数字字符和第一个数字之后的所有字符,返回结果就是numeric
+parse_number("$1000")  #1000
+parse_number("euro1000") #1000
+parse_number("t1000t1000") #1000
+
+df%>%separate(salary,c("min","max"),sep="-")%>%mutate(salary=(parse_number(min)+parse_number(max))/2)%>%  #这里的salary是数字
+mutate(salary=paste0(salary,"K"))%>%  #这里转换为了字符+K
+select(-min,-max)
+
+df%>%separate(salary,c("min","max"),sep="-")%>%mutate(salary=(parse_number(min)+parse_number(max))/2)%>%mutate(salary=paste0(salary,"K"))%>%select(-min,-max)
+#当然也可以直接将其转换为x1000数字化
+
+df%>%separate(salary,c("min","max"),sep="-")%>%mutate(salary=(parse_number(min)+parse_number(max))*1000/2)%>%select(-min,-max)
+```
+
+```{r}
+df = df %>%
+  separate(salary, into = c("low", "high"), sep = "-") %>%  # sep="-"也可以省略
+  mutate(salary = (parse_number(low) + parse_number(high)) * 1000 / 2) %>%
+  select(-c(low, high))
+df
+```
+ 
+或者来个高级的，用正则表达式提取数字，定义做计算的函数，再`purrr::map_dbl`做循环计算：
+
+```{r eval=FALSE}
+calc = function(x) sum(as.numeric(unlist(x))) * 1000 / 2
+df %>%
+  mutate(salary = map_dbl(str_extract_all(salary, "\\d+"), calc))   # 结果同上(略)
+
+
+#https://github.com/rstudio/cheatsheets/blob/main/strings.pdf，查看stringr的cheatsheet的正则表达式部分，\\d匹配数字，+是》1匹配，\\d+是匹配多位数
+
+#从一个或多个字符串中提取所有匹配正则表达式的子串
+#str_extract是取出第1个，str_extract_all取出所有子串
+str_extract_all("20k-35k","\\d+") #[1] "20" "35",返回所有数字子串
+str_extract_all("20k-35k","\\d") #[1] "2" "0" "3" "5"，\\d+是匹配多位数，\\d是匹配单位数字
+
+#提取出来的字符串，要转换为向量，所以用unlist，因为要计算，再转换为数字as.numeric
+class(str_extract_all("20k-35k","\\d+")) #"list"
+class(unlist(str_extract_all("20k-35k","\\d+"))) #"character"
+
+#所以定义了calc函数，用于将提取出来的数字字符串list（且是2个）转换为数字求均值
+#map_dbl(str_extract_all(salary, "\\d+"), calc)：对 str_extract_all 提取的每个数字序列列表list应用 calc 函数，返回一个数值向量
+
+```
+
+
+### 题目24（分组汇总）：根据学历分组，并计算平均薪资
+
+**难度：**$\star\star\star$
+
+**代码及运行结果：**
+```{r}
+table(df$education)
+#本科 不限 大专 硕士 
+# 119    5    4    7 
+ 
+df%>%group_by(education)%>%summarise(salary_mean=mean(salary)) #用mutate也行，但是没有分组效果
+
+```
+```{r}
+df %>% 
+  group_by(education) %>% 
+  summarise(salary_avg = mean(salary))
+```
+
+
+### 题目25（时间转换）：将createTime列转换为"月-日"
+
+**难度：**$\star\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#mutate变旧列为新列，但是新增列；summarise同理但是仅显示新列
+df%>%mutate(createTime)
+
+```
+
+
+```{r}
+library(lubridate) #?解析以及操作日期的工具
+df %>% 
+  mutate(createTime = str_sub(createTime, 6, 10))  
+#但是str_sub是stringr包中的函数，提取每个字符串的特定子串——从每个字符串的第6个字符开始提取，直到第10个字符结束
+```
+
+
+### 题目26（查看数据）：查看数据结构信息
+
+**难度：**$\star$
+
+**代码及运行结果：**
+```{r}
+str(df)
+```
+```{r}
+glimpse(df)       # 或者用str()
+object.size(df)   # 查看对象占用内存,5112 bytes
+```
+
+
+### 题目27（查看数据）：查看数据汇总信息
+
+**难度：**$\star$
+
+**代码及运行结果：**
+```{r}
+summary(df)
+```
+
+```{r}
+summary(df)
+```
+
+
+### 题目28（修改列）：新增一列将salary离散化为三水平值
+
+**难度：**$\star\star\star\star$
+
+**代码及运行结果：**
+
+
+```{r}
+#case_when创建多级离散列,.default用与判断分支最后的分支情况（相当于不满足前面所有条件的其他条件，补集）
+df = df %>%
+  mutate(class = case_when(
+    salary >= 0 & salary < 5000     ~ "低",
+    salary >= 5000 & salary < 20000 ~ "中",
+    .default =  "高"))  
+
+#或
+df%>%
+  mutate(salary_level=case_when(
+    salary<=5000~"low",
+    salary>5000 & salary<=20000~"medium",
+    salary>20000~"high"
+  ))
+```
+
+- 或者用`cut()`函数：
+
+```{r eval=FALSE}
+df %>% 
+  mutate(class = cut(salary, 
+                     breaks = c(0,5000,20000,Inf), 
+                     labels = c("低", "中", "高"),
+                     right = FALSE))
+?cut
+```
+
+- 或者用`sjmisc`包中的`rec()`，和SPSS的重新编码一样强大。
+
+```{r eval=FALSE}
+df %>%
+  mutate(class = sjmisc::rec(salary,
+    rec = "min:5000 = 低; 5000:20000 = 中; 20000:max = 高"))
+??sjmisc
+```
+
+
+### 题目29（数据整理）：按salary列对数据降序排列
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+df%>%arrange(-salary)
+?arrange
+```
+
+```{r}
+#类同第16/17题
+df %>% filter(rownames(df)==33)
+
+#或者使用索引（因为有数字下标）
+df[33,]
+
+#或者使用slice切片函数——列select行filter行slice（切片）
+df%>%slice(33)
+```
+
+
+### 题目30（筛选行）：提取第33行数据
+
+**难度：**$\star$
+
+**代码及运行结果：**
+
+```{r}
+df %>% 
+  slice(33)       # 或者df[33,] 
+```
+
+### 题目31（数据计算）：计算salary列的中位数
+
+**难度：**$\star$
+
+**代码及运行结果：**
+
+```{r}
+df
+df%>%summarise(salary_median=median(salary))
+median(df$salary)  #17500
+```
+
+```{r}
+df
+df %>% 
+  summarise(med = median(salary))  # 或者median(df$salary)
+```
+
+
+### 题目32（数据可视化）：绘制salary的频率分布直方图
+
+**难度：**$\star\star\star$
+
+**代码及运行结果：**
+ 
+```{r}
+ggplot(data=df,mapping = aes(x=df$salary))+
+  geom_histogram()
+
+#当然也可以直接使用%>%将整体数据框传递给ggplot，然后对应的映射中的图形属性只需直接提供数据中的列var名即可，即如果传递入整体数据框，则在ggplot中该数据框相关的列var都可以直接使用，不需要$;当然可以根据自己需求将x=salary修改为y=salary
+
+df%>%ggplot(mapping = aes(x=salary))+
+  geom_histogram()
+```
+
+```{r}
+df %>%
+  ggplot(aes(salary)) +
+  geom_histogram(bins = 10, fill = "steelblue", color = "black")
+```
+  
+### 题目33（数据可视化）：绘制salary的频率密度曲线图
+
+**难度：**$\star\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#频率代替概率，前面的直方图是count~salary，所以实际上我们可以获取每一个薪水salary行对应的频率列值
+#所以是先计算每行的概率值，然后将新数据传递入绘图函数中
+#频率=频数/总数，总数是知道的，频数如何统计，即如何统计在一个向量序列中每个值出现了几次
+#实际上计算频数的话，可以使用table或者是count，或者是定义函数计数
+
+# df%>%mutate(salary_count=count(salary))   #暂时用不了,count的这种用法
+
+df%>%count(salary)%>%mutate(salary_prob=n/sum(n))%>%ggplot(mapping=aes(x=salary,y=salary_prob))+
+  geom_line()
+#当然上面处理的实际上是离散概率曲线（直接显示概率值，严格意义上也不是概率密度，因为是离散的），概率密度一般就是用于处理连续数据在某个区间内的概率（进行积分）
+
+#当然除了自己编程定义之外，可以看一下有没有现成的函数
+df%>%ggplot(mapping = aes(x=salary))+
+  geom_density()
+```
+
+```{r}
+df %>%
+  ggplot(aes(salary)) +
+  geom_density(color = "red")
+```
+  
+### 题目34（数据删除）：删除最后一列class
+
+**难度：**$\star$
+
+**代码及运行结果：**
+
+```{r}
+df%>%select(-class)
+
+```
+
+```{r}
+df %>% 
+  select(-class)
+# 或者
+# df %>% 
+#  select(-last_col())  # 同last_col(0)
+```
+ 
+### 题目35（数据操作）：将df的第1列与第2列合并为新的一列
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+```{r}
+#separate是将1列数据分成多列，unite是将多列数据合并1列
+df%>%unite(new_col1,createTime,education,sep="_")
+?unite
+```
+
+```{r}
+df %>% 
+  unite("newcol", 1:2, sep = " ")
+```
+  
+### 题目36（数据操作）：将education列与第salary列合并为新的一列
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+```{r}
+df%>%unite(education_salary,education,salary,sep = ":")
+```
+
+```{r}
+df %>% 
+  unite("newcol", c(education, salary), sep = " ")
+```
+  
+ 
+### 题目37（数据计算）：计算salary最大值与最小值之差
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+```{r}
+#可以直接自定义函数：传递给1列数据，然后计算该列数据的极差
+max_min <- function(data,var){
+  return(max(data[[var]])-min(data[[var]]))
+}
+max_min(df,"salary")  #这里一定要提供1个chr
+
+
+#但是下面直接使用$的方法不行
+max_min <- function(data,var){
+  return(max(data$var)-min(data$var))
+}
+max_min(df,salary) 
+#在R中，当你尝试使用变量名作为字符串来引用数据框（data frame）中的列时，你需要使用[['...']]而不是$。此外，当你在函数中引用列名时，列名应该是字符串形式的，这样R才能正确地将其作为变量处理
+#The error in your function max_min is due to how R is interpreting the var argument within the function. When you pass data$var, R is looking for a column named "var" in your data frame data, rather than interpreting var as a variable that holds the column name. To fix this, you can use the square bracket notation to access the column of data using a variable.
+#总之在函数定义中使用变量，就使用[[]]，尽量不用$，然后提供了[[var]]，R会解释要在df中寻找1个名为"var"的列，所以你要在函数使用中显式提供该列名，且是字符串
+
+#或者是直接进行计算
+max(df$salary)-min(df$salary)
+```
+
+```{r}
+max(df$salary) - min(df$salary)
+```
+
+或者用
+
+```{r}
+df %>% 
+  summarise(range = max(salary) - min(salary))
+```
+
+### 题目38（数据操作）：将第一行与最后一行拼接
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+  
+```{r}
+#也就是只留下第1行以及最后1行
+df%>%slice(1,length(salary))  
+
+#这里其实问题就在于如何获取以及计算出df的最后1行行数，此处是使用了length（df$某列var）
+#当然也可以直接使用n()来传递计数
+
+df%>%slice(1,n())
+```
+
+```{r}
+df %>% 
+  slice(1, n())
+```
+
+
+### 题目39（数据操作）：将第8行添加到末尾
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+```{r}
+#列select行filter
+#一种就是取出第8行同时删掉第8行，然后将取出的数据添加到末尾，
+#或者是直接将第8行添加到末尾，如果不考虑第8行的重复的话，可以直接取出再拼接rbind
+df%>%slice(8)%>%rbind(df) #136 × 4
+
+```
+
+```{r}
+df %>% 
+  bind_rows(slice(., 8))  #136 × 4，也就是效果其实1样
+
+#df %>% bind_rows(slice(8)),.是用于指代传入的数据
+?bind_rows
+```
+  
+ 
+### 题目40（查看数据）：查看每一列的数据类型
+
+**难度：**$\star$
+
+**代码及运行结果：**
+```{r}
+df%>%str()
+df%>%glimpse()    #glimpse在英语中就有一瞥的意思，也就是快速看一下数据类型
+```
+
+```{r}
+glimpse(df)     # 或者用str()
+```
+
+  
+### 题目41（数据操作）：将createTime列设置为行索引
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+  
+```{r}
+#每次刷题时需要重新运行
+?save
+save(df,file = "df.RData")
+load("df.RData")
+```
+  
+```{r}
+#原本的行名：
+rownames(df)  #[1] "1"   "2"   "3"   "4"   "5"   "6"   "7"   "8"   "9"   "10" 等
+
+# rownames(df)<-df$createTime #不行，提示不允许有重复的'row.names'
+any(duplicated(df)) #TRUE,说明存在重复的行名
+
+#去除重复需要使用tidyverse中的函数distinct，参考第8题：
+df<-df%>%distinct(createTime,.keep_all = TRUE) ##对于重复的观测，保留第1行即第1个观测
+rownames(df)<-df$createTime  
+#上面数据操作的效果就是修改了行名1,2,3等变为[1] "2020-03-16 11:30:18" "2020-03-16 10:58:48" "2020-03-16 10:46:39" "2020-03-16 10:45:44"，但是要rownames(df)才能显示查看，直接df还是只能看到1,2,3等的行索引,甚至df[1,]还能使用，当然df["2020-03-16 11:30:18",]也能用
+
+#当然上面就修改了行名，并且也破坏了管道流，如果依然使用管道流并且不改变df最终结果，只是展现过程中的数据操作的话，可以使用column_to_rownames
+?column_to_rownames
+df %>% 
+  distinct(createTime, .keep_all = TRUE) %>% 
+  column_to_rownames("createTime") 
+#如果按照上面那样使用column_to_rownames的话，最终的展示效果是以time展示为行名（该列直接移到行名中）
+```
+  
+```{r}
+df %>% 
+  distinct(createTime, .keep_all = TRUE) %>% 
+  column_to_rownames("createTime") 
+```
+  
+**注：** 行索引不允许有重复，所以先做了一步去重。
+
+### 题目42（数据创建）：生成一个和df长度相同的随机数数据框
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+  
+```{r}
+#生成随机数，如果是生成满足某项特定分布的随机数，可以使用runif、rnorm、rpois、rbinom、rexp等等
+#或者简单的随机抽样就使用sample函数：
+sample(20:24,3,replace = TRUE)  #20:24中抽取3个，且允许重复
+sample(20,3,replace = TRUE)  #1:20中抽取3个，且允许重复
+?sample
+
+df2<-tibble(new_col=sample(1:10,nrow(df),replace = TRUE))
+
+df1 = tibble(rnums = sample(10, nrow(df), replace = TRUE))
+df1
+```
+  
+### 题目43（数据连接）：将上面生成的数据框与df按列合并
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+
+```{r}
+cbind(df,df1) #但是cbind之后是df,不是tibble
+?bind_cols
+
+#但是bind_cols并不涉及col的键值匹配，只是简单放在一起，建议使用join
+df = bind_cols(df, df1)
+df
+```
+
+**注：**实际上，42，43题应该合并成一个题，这是数据操作中最常规的修改列：
+
+```{r}
+df %>%
+  mutate(rnums = sample(10, n(), replace = TRUE))
+```
+
+
+### 题目44（修改列）：生成新列new为salary列减去随机数列
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+df = df %>% 
+  mutate(new = salary - rnums)
+df
+```
+  
+  
+### 题目45（检查缺失值）：检查数据中是否含有任何缺失值
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+load("df.RData")
+#也可以使用is.na来处理
+
+?anyNA  #anyNA是检查内容中所有元素
+anyNA(df)
+anyNA(df$salary)
+
+#install.packages("naniar")
+naniar::miss_var_summary(df)  #按列col来检查每列的NA值
+naniar::miss_case_summary(df) #按行row来检查每行的NA值
+```
+
+**注：** naniar包提供了更强大的探索缺失值及缺失模式的函数，其中`miss_var_summary()`和`miss_case_summary()`可检查各列和各行缺失情况。
+  
+### 题目46（类型转换）：将salary列的类型转换为浮点数
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#as.数据类型
+df %>% 
+  mutate(rnums = as.double(rnums))
+```
+  
+  
+### 题目47（数据汇总）：计算salary列大于10000的次数
+
+**难度：**$\star\star\star$
+
+**代码及运行结果：**
+```{r}
+df%>%filter(salary>10000)%>%count()   #119
+```
+    
+```{r}
+df %>% 
+  count(salary > 10000)
+#类似于先group_by之后再进行行case统计
+?count
+```
+    
+或者用
+
+```{r}
+df %>% 
+  summarise(n = sum(salary > 10000))
+```
+  
+  
+### 题目48（统计频数）：查看每种学历出现的次数
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+```{r}
+#可以先group_by再进行count或者是n之类
+df%>%group_by(education)%>%count()
+
+#或者是直接传递到count函数中
+count(df,education)
+df%>%count(education)
+
+#或者是直接传递到table函数中计算频数表
+table(df$education)
+```
+
+```{r}
+df %>% 
+  count(education)   
+```
+  
+  
+### 题目49（数据汇总）：查看education列共有几种学历
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#实际上这题和上一题做的事情是一致的，知道了频数表看行数就是学历数目
+#实际上使用distinct，也就是去除重复，也可以得知某列的factor的level
+df %>% 
+  distinct(education)
+```
+  
+### 题目50（筛选行）：提取salary与new列之和大于60000的最后3行
+
+**难度：**$\star\star\star\star$
+
+**代码及运行结果：**
+```{r}
+#列select行filter
+df%>%filter(salary+new > 60000)%>%tail(3)   
+df%>%filter(salary+new > 60000)%>%slice_tail(n=3)
+
+#二进列运算符中有非数值参数,如果数据类型不行，需要先转换数据as.double
+glimpse(df)
+
+#tail或slice
+?tail
+?slice_tail
+```
+    
+```{r}
+df %>% 
+  filter(salary + new > 60000) %>% 
+  slice_tail(n = 3)
+```
+  
+## Part III 提高
+
+### 题目51（读取数据）：使用绝对路径读取本地Excel数据
+
+**难度：**$\star$
+
+**代码及运行结果：**
+
+
+```{r}
+library("readxl")
+df<-read_excel("C:\\Users\\ZHT\\Downloads\\51-80数据.xls",col_names = TRUE)  
+?read_excel  #col_names = TRUE，第一列作为行名
+df<-read_xlsx("C:\\Users\\ZHT\\Downloads\\21-50数据.xlsx",col_names = TRUE)
+
+
+df = readxl::read_xls("data/51-80数据.xls")
+df
+```
+  
+  
+### 题目52（查看数据）：查看数据框的前3行
+
+**难度：**$\star$
+
+**代码及运行结果：**
+
+    
+```{r}
+#head使用slice_head或head，tail使用slice_tail或tail，slice_的需要传递数据过来
+df%>%slice_head(n=3)
+
+head(df, 3)   
+```
+
+**说明：**当前数据不包含缺失值，接下来关于缺失值的题目53-56，改用自带的 `starwars`数据演示。
+
+  
+### 题目53（查看缺失值）：查看每列数据缺失值情况
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#查看每列，即var
+#查看每行，即case
+naniar::miss_var_summary(starwars)  
+naniar::miss_case_summary(starwars)
+
+
+map_int(starwars, ~ sum(is.na(.x)))
+?map_int
+
+#map_int对列表或数据框的每个元素(主要是每列)应用一个函数，并返回一个整数向量
+#~：这是R语言中的匿名函数符号，用于创建一个简短的函数。
+#sum(is.na(.x))：这是一个匿名函数，.x代表map_int函数的当前元素。is.na(.x)会检查.x中的每个元素是否是缺失值（NA），然后sum函数会计算这些NA值的总数
+```
+
+**注：** 也可以用`naniar`包中的 `miss_var_summary()`函数。
+
+### 题目54（查看缺失值）：查看日期列含有缺失值的行
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+starwars
+#查看的是某列中的缺失值，但是要确定对应的行数
+naniar::miss_var_summary(starwars)  #但是只能看到miss的数量，不能确定具体NA缺失的行
+naniar::miss_case_summary(starwars$birth_year)   #报错，没有办法实现
+
+#只能使用关于行的函数，对每行进行这一列var的检索操作（选行，但是选择标准是列是否miss）
+#列select行filter
+starwars%>%filter(birth_year=="NA")  #如果简单的赋值判等无法见效，只能使用NA专用的逻辑判断函数饿
+starwars%>%filter(is.na(birth_year)) 
+
+
+starwars %>% 
+  filter(is.na(hair_color))
+```
+
+    
+### 题目55（查看缺失值）：查看每列缺失值在哪些行
+  
+**难度：**$\star\star\star$
+  
+**代码及运行结果：**
+
+```{r}
+#同样的，是对列进行缺失值查询，所以使用函数select，然后筛选的标准是行
+#当然其实也没有那么多要求，因为一般的数据分析我们要关注的都是feature，也就是var，也就是列的数据，以列为主，关注这些列具体的缺失情况，分别关注每一列的缺失情况，那实际上就是每一列在哪一行缺失
+
+#因为是对每列都要进行查询NA，所以要使用循环函数map
+#然后需要定义1个匿名函数，用于检查缺失值~is.na,然后它需要参数，所以同（.样使用匿名参数替代~is.na(.),或者是使用is.na(.x)
+starwars%>%map(~is.na(.))
+starwars%>%map(~is.na(.x))  #引用当前行或当前元素,反正看.x和.哪个能够用于传递参数 
+?map #事实上在map函数的para列表中，默认使用的就是.x
+#上面的操作实际上列出每一列所有的值的检查，有T以及F，但是我们关注的是缺失的列，所以只要选出T即可
+starwars%>%map(~which(is.na(.x)))  #注意which本身是一个更新之后的匿名函数
+?which  #Give the TRUE indices of a logical object 给出一个逻辑对象的TRUE索引
+
+map(starwars, ~ which(is.na(.x)))
+```
+
+    
+### 题目56（缺失值处理）：删除所有存在缺失值的行
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#删除所有，即所有列var存在缺失值的行，也就是每1列只要存在缺失值的行就删除，那所有列统一起来就会删掉很多行
+#使用drop_na函数
+
+?drop_na #Drop rows containing missing values
+#删除所有行
+starwars%>%drop_na()  #87 × 14变为29 × 14
+#如果我只关注某个列，只想删掉某列中存在缺失值的行，比如说我只关注homeworld
+starwars%>%drop_na(homeworld) 
+
+starwars %>% 
+  drop_na()
+```
+
+**注：** 若要删除某些列包含缺失值的行，提供列名即可。
+  
+### 题目57（数据可视化）：绘制收盘价的折线图
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+```{r}
+df
+glimpse(df)
+#日期              <dttm>
+#`收盘价(元)`      <dbl>
+
+
+df%>%ggplot(mapping = aes(x="日期",y="收盘价(元)"))+
+  geom_line()
+#因为不确定每1列具体的var名如何正确表示，比如上面的数据类型不是str，所以加个“”其实无效；
+#所以还是建议glimpse查看，然后显示的var是如何表示的，直接复制粘贴即可!!!
+
+df%>%ggplot(mapping = aes(x=日期,y=`收盘价(元)`))+
+  geom_line()
+?geom_line  #alpha、colour以及linetype等参数都可以使用
+```
+
+
+```{r}
+df %>% 
+    ggplot(aes(日期, `收盘价(元)`)) +
+    geom_line(color = "red")
+```
+
+
+### 题目58（数据可视化）：同时绘制开盘价与收盘价
+
+**难度：**$\star\star\star$
+
+**代码及运行结果：**
+
+```{r}
+library(tidyverse)
+save(df,file="df.RData")
+load("df.RData")
+?save
+```
+
+```{r}
+df
+glimpse(df)   # `开盘价(元)` 、`收盘价(元)`
+
+#同时绘制两个y轴var的图，需要分面或者是分组（col等属性进行区分）,所以此处需要将这两种价格统一到一个具有两水平level的列中，也就是格式转换,也就是长短格式转化
+
+#然后数据格式转换的话可以使用函数gather或者是pivot_longer,将宽数据格式转换为长数据格式
+#宽转长是gather和pivot_longer(后者使用更多)，然后反过来长转宽是spread和pivot_wider
+?pivot_longer  #Pivot data from wide to long
+
+#所以要先将这两个收价列合并到1个列中,也就是列var变少，行case变多，因为两列整合合并到1列中，所以是宽变长，所以是longer
+
+?gather
+#参数其实很简单，就是选择要归并转换的列，以及对应该列进行整合的新键值对
+#names_to：values_to构成键值对，即要归并的列var（分类key：对应值value）
+df%>%pivot_longer(cols=c(`开盘价(元)`,`收盘价(元)`),names_to= "type",values_to ="money")
+#原本的df是327 × 18，然后现在的df是654 × 18
+
+df%>%pivot_longer(cols=c(`开盘价(元)`,`收盘价(元)`),names_to= "type",values_to ="money")%>%ggplot(mapping = aes(x=日期,y=money,group=type))+
+  geom_line(mapping = aes(color=type))
+  
+glimpse(df)
+#此处的type也就是是否开盘还是收盘，对应的类型是chr，暂时没有改为factor
+```
+
+```{r}
+df %>%
+  select(日期, `开盘价(元)`, `收盘价(元)`) %>% 
+  pivot_longer(-日期, names_to = "type", values_to = "price") %>%
+  ggplot(aes(日期, price, color = type)) +
+  geom_line() 
+#选了3列变量，然后除去日期的数据进行宽转长，转换之后的新数据的键值对是type：price，然后就是ggplot绘图
+```
+
+**注：** 为了自动添加图例，先对数据做了宽变长转换。
+
+### 题目59（数据可视化）：绘制涨跌幅的直方图
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+df
+glimpse(df)
+#另外注意直方图中x就是要统计的var，y只不过是count的计数罢了，每一次都不要写成x、y
+df%>%ggplot(mapping = aes(x=`涨跌幅(%)`))+
+  geom_histogram()
+
+
+df %>% 
+  ggplot(aes(`涨跌幅(%)`)) +
+  geom_histogram(fill = "steelblue", color = "black")
+
+#fill是内部，color是轮廓
+```
+
+### 题目60（数据可视化）：让直方图更细致
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+df %>% 
+  ggplot(aes(`涨跌幅(%)`)) +
+  geom_histogram(bins = 50, fill = "steelblue", color = "black")
+```
+
+    
+### 题目61（数据创建）：用df的列名创建数据框
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#开始前运行一次
+library(tidyverse)
+save(df,file="df.RData")
+load("df.RData")
+```
+
+
+```{r}
+#列名可以使用names或者是colnames
+names(df)
+tibble(col_names=names(df))
+```
+
+```{r}
+tibble(Name = names(df))
+```
+  
+### 题目62（异常值处理）：输出所有换手率不是数字的行
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#列select行filter，本题实际上是对行进行的操作，只不过标准是列，所以最后的输出一定是filter函数
+
+glimpse(df)  #$ `换手率(%)`       <chr>
+#发现这1列是chr类型，只不过内容是数字，所以应该转换为数字来判断
+#parse_number 函数的目的是将字符型数据转换成数值型数据，如果字符数据无法转换为数字，则返回 NA；所以先使用parse_number将数字内容转换为数字数值，如果不是数字内容的就可以使用is.na来进行判断
+
+df %>% 
+  mutate(`换手率(%)` = parse_number(`换手率(%)`)) %>% 
+  filter(is.na(`换手率(%)`))
+```
+
+    
+### 题目63（异常值处理）：输出所有换手率为--的行
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+df %>% 
+  filter(`换手率(%)` == "--")
+```
+
+
+### 题目64（数据操作）：重置df的行号
+
+**难度：**$\star$
+
+**代码及运行结果：**
+
+```{r}
+rownames(df) = NULL    # R中无行号就是数字索引
+#这意味着行名将被移除，数据框将不再有显式的行名，行将默认使用数字索引
+```
+
+
+### 题目65（异常值处理）：删除所有换手率为非数字的行
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#删除A，即输出非A
+#因为is.na逻辑输出，所以不能使用-排除，用！非
+df %>% 
+  mutate(`换手率(%)` = parse_number(`换手率(%)`)) %>% 
+  filter(!is.na(`换手率(%)`))
+```
+
+
+```{r}
+#这段代码的执行结果是一个更新后的数据框，其中第 4 到第 18 列现在是数值类型，日期 列现在是日期对象
+library(lubridate)
+df = df %>% 
+  mutate(across(4:18, as.numeric), 日期 = as_date(日期))
+df
+```
+
+
+### 题目66（数据可视化）：绘制换手率的密度曲线
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#和前面的绘图一样的处理方式，直方图再密度图，都可以直接从geom_绘图函数中获取处理
+df%>%ggplot(mapping = aes(x=`换手率(%)`))+geom_density()
+
+df %>%
+  ggplot(aes(`换手率(%)`)) +
+  geom_density()
+```
+
+ 
+### 题目67（数据计算）：计算前一天与后一天收盘价的差值
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+names(df)
+#注意不同列之间的运算，是同一列之间值的运算
+df$`收盘价(元)`
+#所以这里涉及到对同一列var不同行之间的操作
+#如果你想要对数据框（data frame）中的同一列的不同行进行逐行的加减操作，你可以使用 dplyr 包中的 mutate 函数结合 lag 或 lead 函数来实现。lag 函数可以用来访问前一行的值，而 lead 函数可以用来访问后一行的值
+  
+#从理论上来说，应该是后一天-前一天
+df %>% 
+  mutate(delta = `收盘价(元)` - lag(`收盘价(元)`)) %>% 
+  select(日期, `收盘价(元)`, delta)
+#第一行肯定是NA，因为x-NA依然是NA
+```
+
+ 
+### 题目68（数据计算）：计算前一天与后一天收盘价的变化率
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+df %>% 
+  mutate(delta = `收盘价(元)` - lag(`收盘价(元)`)) %>% 
+  mutate(delta_change_rate=paste0(delta/`收盘价(元)`*100,"%"))%>%
+  select(日期, `收盘价(元)`, delta,delta_change_rate)
+
+df %>% 
+  mutate(change = (`收盘价(元)` - lag(`收盘价(元)`)) / `收盘价(元)`) %>% 
+  select(日期, `收盘价(元)`, change)
+```
+
+
+### 题目69（数据操作）：设置日期为行索引
+
+**难度：**$\star$
+
+**代码及运行结果：**
+
+```{r}
+#设置为行索引实际上就是转换为行名，从列var转换为行名使用
+df %>% 
+  column_to_rownames("日期")   # 将从tibble变成data.frame 
+```
+
+ 
+### 题目70（数据计算）：对收盘价做步长为5的滑动平均
+
+**难度：**$\star\star\star$
+
+**代码及运行结果：**
+
+```{r}
+library(slider)
+
+df %>%
+  mutate(avg_5 = slide_dbl(`收盘价(元)`, mean, na.rm = TRUE, 
+                           .before = 2, .after = 2)) %>% 
+  select(日期, `收盘价(元)`, avg_5)
+
+?slide_dbl  #slide() iterates through .x using a sliding window, applying .f to each sub-window of .x.
+#参考https://slider.r-lib.org/reference/slide.html中对于before以及after的用法，.before以及.after只寻找之前以及之后存在的数据，也就是说第一行没有before，只有自己+后面2行做一个平均，也就是说只招现存的行数做一个现存的/n平均——当然这些操作的前提是na.rm=T，不然实际执行过程中第一行前面不存在的2行也有，那么计算进去就是NA，含有NA的计算结果也是NA
+
+#所以slider要搭配na.rm=T才能正确处理开头以及结尾部分的空缺行
+df %>%
+  mutate(avg_5 = slide_dbl(`收盘价(元)`, mean, na.rm = FALSE, 
+                           .before = 2, .after = 2)) %>% 
+  select(日期, `收盘价(元)`, avg_5)
+#但是修改为false之后发现还是同样的结果，所以slide_dbl的计算思路就是只计算现有存在的行以及数目
+```
+
+ 
+### 题目71（数据计算）：对收盘价做步长为5的滑动求和
+
+**难度：**$\star\star\star$
+
+**代码及运行结果：**
+```{r}
+#开始前运行一次
+library(tidyverse)
+#save(df,file="df.RData")
+load("df.RData")
+df
+```
+
+
+```{r}
+#其实这一题就是上一题的基础，只有知道了滑动窗口为5的总和，才能/n获取这个窗口里的平均，正好用于验证slide_dbl函数的思路
+library(slider)
+df%>%
+  mutate(sum_5=slide_dbl(`收盘价(元)`,sum,na.rm=TRUE,.before=2,.after=2))%>%
+  select(日期, `收盘价(元)`, sum_5)
+#其实从这个数据中也可以看出，slide_dbl选择的滑动窗口其实就是选择实际存在（非NA）的行
+```
+
+```{r}
+df %>%
+  mutate(sum_5 = slide_dbl(`收盘价(元)`, sum, na.rm = TRUE, 
+                           .before = 2, .after = 2)) %>% 
+  select(日期, `收盘价(元)`, sum_5)
+```
+
+ 
+### 题目72（数据可视化）：将收盘价及其5日均线、20日均线绘制在同一个图上
+
+**难度：**$\star\star\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#首先要获取这3个var的数据，收盘价直接var现取现用，5/20日均线计算见前
+#其实窗口设置并没有所谓的定则，比如说所谓的5日均线，什么是5日，前2后2？其实也不一定，也可以是前4后0，或者是前0后4，两种设置都会得到一个包含5个数据点的窗口，但它们在数据上的着重点不同。第一种设置更注重历史数据，而第二种设置更注重未来数据——》所以这里所谓的几日均线，只要满足窗口大小即可，其余的都可以自己定义
+#此处将前avg_5定义为前2后2，avg_20定义为前10后9
+#其实一般理想是均衡一点，即前后的数据都均衡一点查看，所以奇数列很好查看，可以设置为前后偶数，但是偶数列就前10后9或者前9后10都可以
+
+df%>%
+  mutate(avg_5=slide_dbl(`收盘价(元)`, mean, na.rm = TRUE, 
+                           .before = 2, .after = 2))%>%
+  mutate(avg_20=slide_dbl(`收盘价(元)`, mean, na.rm = TRUE, 
+                           .before = 10, .after = 9))%>%
+  select(日期, `收盘价(元)`, avg_5,avg_20)%>%
+  ggplot(mapping = aes(x=日期,y=c(`收盘价(元)`, avg_5,avg_20)))+
+  geom_line()
+
+#这里其实又犯了一个错了，就是y轴的美学属性只能是一个var，所以不应该使用集合
+#所以这里又涉及到数据宽变长,具体可以参考58题
+?pivot_longer
+df%>%
+  mutate(avg_5=slide_dbl(`收盘价(元)`, mean, na.rm = TRUE, 
+                           .before = 2, .after = 2))%>%
+  mutate(avg_20=slide_dbl(`收盘价(元)`, mean, na.rm = TRUE, 
+                           .before = 10, .after = 9))%>%
+  select(日期, `收盘价(元)`, avg_5,avg_20)%>%
+  pivot_longer(cols=c(`收盘价(元)`,avg_5,avg_20),names_to="type",values_to="money")%>%
+  ggplot(mapping = aes(x=日期,y=money,group=type))+
+  geom_line(mapping = aes(color=type))
+  
+#也可以在mutate中不分开
+df %>%
+  mutate(avg_5 = slide_dbl(`收盘价(元)`, mean, na.rm = TRUE, 
+                           .before = 2, .after = 2),
+  avg_20 = slide_dbl(`收盘价(元)`, mean, na.rm = TRUE, 
+                     .before = 10, .after = 9)) %>% 
+  pivot_longer(c(`收盘价(元)`, avg_5, avg_20),
+               names_to = "type", values_to = "price") %>% 
+  ggplot(aes(日期, price, color = type)) +
+    geom_line()
+```
+
+ 
+### 题目73（数据重采样）：按周为采样规则，计算一周收盘价最大值
+
+**难度：**$\star\star\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#按周来采样，首先可以对原始数据按周来分组，但是我们需要明确的确定几月几号是周几，所以不是简单的将原始数据中相邻的7天或者是5天工作日时间分组group_by在一起就行的
+#可以使用tsibble包中的yearweek函数，可以判断df数据中的日期（格式为某某年某某月某某日）为具体的周几，也就是判断为在某个周中
+
+?tsibble   #tsibble用于时间序列分析
+?yearweek
+
+df
+#yearweek(日期)函数将日期列中的每个日期转换为年份和周数的组合，例如“2024-21”表示2024年的第21周
+#原始的日期数据中没有周末的数据，只有周1到周5的数据
+tsibble::yearweek(df$日期)
+
+df%>%mutate(week=yearweek(日期))%>%select(日期,week)  #查看具体日期是在哪周中
+#我们需要将具体的日期归并到具体的周数中，然后按照周数来分组group_by，然后分组之后对每一组中的数据取最值max
+?slice_max #slice_min() and slice_max() select rows with the smallest or largest values of a variable.
+df%>%group_by(week=yearweek(日期))%>%slice_max(`收盘价(元)`)  #总共weeks是69周，但是实际数据为91x19，即有91行，所以可能存在同max值，可以select之后查看
+df%>%group_by(week=yearweek(日期))%>%slice_max(`收盘价(元)`)%>%select(week,`收盘价(元)`)  #发现果然有重复值，即重复的max值
+
+df%>%group_by(week=yearweek(日期))%>%slice_max(`收盘价(元)`)%>%select(`收盘价(元)`)%>%any(is_duplicated(.))  #报错error，总之是有方法查看重复的
+
+
+#在指定具体
+library(tsibble)
+weekmax = df %>% 
+  group_by(weeks = yearweek(日期)) %>%    # 年-周
+  slice_max(`收盘价(元)`)   # 默认n = 1
+weekmax
+
+#另外tsibble还有yearmonth函数，还可以查看month的数据
+```
+
+ 
+### 题目74（数据可视化）：绘制重采样数据与原始数据
+
+**难度：**$\star\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#有个问题，重采样数据和原始数据理论撒上是同样的数据，如果这里是使用上一题中以周为单位的max采样数据，那也只是原始数据的一个子集，如果绘制在一起的话显然还是会重叠在一起，可以分组
+df #327x18
+weekmax #91x19
+#实际绘制的时候可以将df以及weekmax数据合并在一起，然后使用pivot_longer,将week和日期合并在type列中，然后绘制value=`收盘价(元)`。这是效仿了前面y轴上要绘制多类var的解决方案，但是week和日期是超多分类，不可能分组；还有一个问题就是x轴上的aes放什么，是week还是日期；
+#所以解决方法并不是分类，而是分开使用两个geom对象绘制两条曲线
+
+#想想看，我有一个新数据weekmax，我先绘制weekmax
+weekmax%>%
+  ggplot(mapping = aes(x=weeks,y=`收盘价(元)`))+
+  geom_line(color="red")
+#然后接下来就是将另外一条曲线补充上去
+weekmax%>%
+  ggplot(mapping = aes(x=weeks,y=`收盘价(元)`))+
+  geom_line(color="red")+
+  geom_line(data = df,mapping = aes(x=日期,y=`收盘价(元)`),color="green")
+
+
+#所以，综上，如果想要在y轴上绘制多var，
+#1，进行数据格式转换，使用pivot_longer或者pivot_wider,将多个变量类型都放在一个总变量meta var中，然后具体绘制的时候使用分组即可
+#2，或者是使用多个geom绘图对象，在不同的geom层中传入不同的data以及映射aes关系，然后一起绘制，需要另外自己表明数据区别
+#但是有一个问题就是不能加label
+
+weekmax %>%
+  ggplot(aes(weeks, `收盘价(元)`)) +
+  geom_line(color = "red") +
+  geom_line(data = df, aes(日期, `收盘价(元)`), color = "steelblue")
+```
+
+
+### 题目75（数据操作）：将数据往后移动5天
+
+**难度：**$\star\star\star$
+
+**代码及运行结果：** 
+
+```{r}
+#可以看到，包含日期即时间数据的这几题，都涉及到了时间序列分析
+
+?lag
+#计算时间序列的滞后版本，将时间基数向后移动给定数量的观测值（即以观测obs行数为单位向后移动）
+
+#如果是单个变量后移，比如说是收盘价，那显然不需要使用循环，直接mutate中使用lag即可
+df%>%mutate(`收盘价后移1天`=lag(`收盘价(元)`,1))%>%
+  select(日期,`收盘价(元)`,`收盘价后移1天`)
+
+#但是题目指的是整体数据的后移，所以需要对每一个列var都使用，也就是循环结构，理论上可以使用apply+最后选取新构造出来的col var即可
+?across #Apply a function (or functions) across multiple columns
+
+names(df)  #其实查看之后，发现只有4~18行左右是定量指标，其余的1-3都是定性指标，所以理论上可以使用4-18列的数据进行移动，也可以使用全部的数据
+names(df)[4:18]
+df[,4:18]
+#across列就是(col,fun),然后列数是整体传入的df，函数的话可以使用匿名函数，要
+df%>%
+  mutate(across(,~lag(.x,5)))  #使用全部的列
+#mutate() 用于变换或添加列，而不影响其他操作
+#~ 是R语言中的匿名函数（lambda函数）的符号，它允许你定义一个简短的函数，而不需要使用完整的 function(x){x}() 结构
+#.x 是 dplyr 函数中的一个特殊占位符，它代表当前正在处理的列。在匿名函数中使用 .x 可以引用当前正在操作的变量，而不需要明确地命名它
+
+
+df %>% 
+  mutate(across(4:18, ~ lag(.x, 5)))
+```
+
+**注：**这是批量做后移，单个变量做后移用`mutate(var = lag(var, 5)`即可。
+
+### 题目76（数据操作）：将数据往前移动5天
+
+**难度：**$\star\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#同样的，对于时间序列数据，向前移动是lead，向后移动是lag
+#注意，lead以及lag都是dplyr包中的函数，接受的参数是n，不是stats包中的k
+?lag
+?lead
+lag(df,n=1)
+lead(df,n=1)
+#所以很自然的，如果要计算相邻几天之内的时间序列数据，可以mutate使用lag或者lead构造新的shift var，然后使用mutate作不同位移时间序列var之间的指标计算；比如说计算今天与昨天之间的差价
+
+
+df %>% 
+  mutate(across(4:18, ~ lead(.x, 5)))
+```
+
+
+### 题目77（数据操作）：计算开盘价的累积平均
+
+**难度：**$\star\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#法1：直接使用对列求mean的函数，col_means等对开盘价求列平均
+#但是注意，是对该列做累计平均而不是总平均，也就是依据时间序列数据计算第1天平均，第1+2天累计平均，第1+2+3天累计平均等（也就是要考虑历史值）
+#所以需要使用新的函数
+
+?cummean
+#dplyr中提供了多种累计函数，包括cummean=cumsum(x) / seq_along(x)
+#同第74题，要绘制多种var可以宽长数据格式转换，或者是使用多个geom绘图对象
+df%>%
+  mutate(累计平均 = cummean(`开盘价(元)`)) %>%
+  select(日期,`开盘价(元)`,累计平均)%>%
+  ggplot()+
+  geom_line(mapping = aes(x=日期,y=`开盘价(元)`),color="red")+
+  geom_line(mapping = aes(x=日期,y=累计平均),color="green")
+
+rlt = df %>% 
+  mutate(累积平均 = cummean(`开盘价(元)`)) %>% 
+  select(日期, `开盘价(元)`, 累积平均)
+rlt
+```
+
+ 
+### 题目78（数据计算）：绘制开盘价的累积平均与原始数据的折线图
+
+**难度：**$\star\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#同上一题77题，同样是绘制多个var在y轴上，解决方法同样对应有2个：
+#数据格式转换或者是传入多个geom绘图对象
+glimpse(rlt)
+rlt%>%
+  ggplot()+
+  geom_line(mapping = aes(x=日期,y=`开盘价(元)`),col="red")+
+  geom_line(mapping = aes(x=日期,y=累积平均),col="green")
+#但是这种方法需要另外自己处理legend（label）
+
+rlt %>% 
+  pivot_longer(-日期, names_to = "类型", values_to = "价格") %>% 
+  ggplot(aes(日期, 价格, color = 类型)) +
+    geom_line()
+```
+
+
+### 题目79（数据计算）：计算布林指标
+
+**难度：**$\star\star\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#slice是对行的切片，总之如果涉及到对行的操作，除了列选行滤filter，还可以使用slice
+
+library(slider)
+#计算20日移动平均
+#计算20日移动标准差
+#avg_20实际上就是中轨
+#up = avg_20 + 2 * sd_20：上轨是移动平均加上两倍的标准差
+#down = avg_20 - 2 * sd_20：下轨是移动平均减去两倍的标准差
+
+boll = df %>%
+  mutate(avg_20 = slide_dbl(`收盘价(元)`, mean, na.rm = TRUE, 
+                            .before = 10, .after = 9), 
+         sd_20 = slide_dbl(`收盘价(元)`, sd, na.rm = TRUE, 
+                           .before = 10, .after = 9),
+         up = avg_20 + 2 * sd_20,
+         down = avg_20 - 2 * sd_20) %>% 
+  select(日期, `收盘价(元)`, avg_20, up, down)
+
+boll %>% 
+  slice_sample(n = 10)
+```
+
+ 
+### 题目80（数据可视化）：绘制布林曲线
+
+**难度：**$\star\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#实际上就是绘制上柜、中规、下轨+目前收盘价，同样道理同题目78，可以使用多种方法，但是为了使用legend，还是选择数据格式转换，将宽数据转换为长数据
+
+boll %>% 
+  pivot_longer(-日期, names_to = "类型", values_to = "价格") %>% 
+  ggplot(aes(日期, 价格, color = 类型)) + 
+    geom_line()
+```
+
+ 
+## Part VI 数据生成
+
+### 题目81（加载查看包）：加载并查看tidyverse包版本
+
+**难度：**$\star$
+
+**代码及运行结果：**
+
+```{r}
+# 得是首次加载
+library(tidyverse)
+sessionInfo()  #查看所有已加载包的版本
+sessionInfo("tidyverse")  #效果和上面差不多，基本上也是显示全部R包版本数据
+packageVersion("tidyverse")  #能够查看特定包的版本
+
+
+#如何查看一个R包中所有依赖包，并查询其版本信息
+#如果已知依赖包，可以直接列出
+tidyverse_packages <- c("ggplot2", "dplyr", "tidyr", "readr", "purrr", "tibble", "stringr", "forcats")
+versions <- sapply(tidyverse_packages, packageVersion)
+versions
+class(tidyverse_packages) #"character"
+
+
+#如果未知依赖包，可以按照下面方法列出所依赖的包
+# 确保tools包已经加载
+library(tools)
+# 替换"packageName"为你想要查询的包名
+dependencies <- package_dependencies(packages = "tidyverse")
+# 打印依赖包
+print(dependencies)
+class(dependencies)  #"list"
+
+#两者合1，就是
+library(tools)
+sapply(package_dependencies(packages = "tidyverse"), packageVersion) #error !!!
+?sapply #vector, matrix
+?lapply #list
+lapply(package_dependencies(packages = "tidyverse"), packageVersion)
+#依然error，之后再说
+```
+
+### 题目82（生成随机数）：生成20个0~100的随机数，创建数据框
+
+**难度：**$\star$
+
+**代码及运行结果：**
+
+```{r}
+#参考第42题
+set.seed(123)      # 保证结果出现，涉及到随机数操作一定要先设定seed
+df1 = tibble(nums = sample(100, 20))
+df1
+
+#其实sample(x)只能取到1:x，取不到0，所以上面应该是sample(0:100)
+#可以测试
+sample(0:1,100,replace=T)
+sample(1,100,replace=T)  #只能取到1
+```
+
+ 
+### 题目83（生成等差数）：生成20个0~100固定步长的数，创建数据框
+
+**难度：**$\star$
+
+**代码及运行结果：**
+
+```{r}
+#即在0~100范围内创建等差数列
+?seq
+seq(from=0,to=100,length.out=20)  #指定数列长度
+
+df2 = tibble(nums = seq(0, 99, by = 5))  #指定步长
+df2
+```
+
+ 
+### 题目84（生成指定分布随机数）：生成20个标准正态分布的随机数，创建数据框
+
+**难度：**$\star$
+
+**代码及运行结果：**
+
+```{r}
+?rnorm
+set.seed(123)
+df3 = tibble(nums = rnorm(20, 0, 1))
+df3
+```
+
+ 
+### 题目85（合并数据）：将df1, df2, df3按行合并为新数据框
+
+**难度：**$\star$
+
+**代码及运行结果：**
+
+```{r}
+df1
+df2
+df3
+#使用rbind
+rbind(df1,df2,df3) #还是tibble
+
+
+#或者是使用bind_rows
+?bind_rows
+bind_rows(df1, df2, df3)
+```
+
+ 
+### 题目86（合并数据）：将df1, df2, df3按列合并为新数据框
+
+**难度：**$\star$
+
+**代码及运行结果：**
+
+```{r}
+#同样，可以使用cbind等
+cbind(df1,df2,df3)  #是df
+
+df = bind_cols(df1, df2, df3) #是tibble
+df
+```
+
+ 
+### 题目87（查看数据）：查看df所有数据的最小值、25%分位数、中位数、75%分位数、最大值
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#其实就是看四分位数+最值
+df%>%summary() #这是查看每列的
+
+?unlist #unlist() 函数用于将一个列表或数据框（data frame）中的所有元素转换成一个向量。当你对一个数据框使用 unlist() 函数时，所有的列都会被展开成一个单一的向量
+#类似于numpy或pytorch中的flatten()函数，用于将多维数据压平为一维数据
+unlist(df) %>% 
+  summary()
+```
+
+ 
+### 题目88（修改列名）：修改列名为col1, col2, col3
+
+**难度：**$\star$
+
+**代码及运行结果：**
+```{r}
+#一种是可以直接使用mutate+select或者是summarise，然后新列=旧列更名
+names(df) #"nums...1" "nums...2" "nums...3"
+df %>%
+  summarise(col1=nums...1,col2=nums...2,col3=nums...3)
+
+?set_names  #用于设置列名
+?str_c #类似于paste0，将多个字符向量合并为1个字符向量，参数字符向量之间组合&最终合并为1个字符向量
+str_c("Letter: ", letters) #"Letter: a"    "Letter: b"  等
+str_c("col", 1:3)  #"col1" "col2" "col3"
+
+df = df %>% 
+  set_names(str_c("col", 1:3)) 
+df
+
+#或者是使用rename
+?rename
+df%>%rename(col1=nums...1,col2=nums...2,col3=nums...3) #基本上效果和上面summarise类似
+```
+ 
+**注：**若只修改个别列名，用`rename(newname = oldname)`.
+
+### 题目89（数据操作）：提取在第1列中而不在第2列中的数
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#实际上就是做差集运算
+?setdiff
+#所有集合运算相关的：intersect交集，union并集，setdiff差集，symdiff对称集（即交集的补集）
+
+setdiff(df$col1, df$col2)
+```
+
+
+### 题目90（数据操作）：提取在第1列和第2列出现频率最高的三个数字
+
+**难度：**$\star\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#首先是要对第1列以及第2列的数据做一个计数，可以使用count或者是table等，本质上就是做一个计数的dict（也就是key-value对）
+#当然计数的前提是将数据混合在一起，所以需要先将第1列以及第2列合并在一起
+df%>%summarise(new_merge=c(col1,col2))  #不能使用mutate，因为mutate要求返回是和原来列一样的长度即20
+df%>%summarise(new_merge=c(col1,col2))%>%table() 
+#或者是
+df%>%summarise(new_merge=c(col1,col2))%>%count(new_merge,sort = T)  
+?count  #注意到有一个sort参数
+
+#然后注意按照出现频率排序之后，需要对行做切出操作，所以需要对行的操作函数，如前面所说，对于行，常用的就是slice以及filter
+#切出前面3行
+df%>%summarise(new_merge=c(col1,col2))%>%count(new_merge,sort = T)%>%
+  slice(1:3)
+
+tibble(nums = c(df$col1, df$col2)) %>% 
+  count(nums, sort = TRUE) %>%  
+  slice(1:3)
+```
+
+
+### 题目91（数据操作）：提取第1列可以整除5的数的位置
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#实际上就是对行的操作，选取符合某一条件的行，所以使用filter，列选行滤
+df%>%
+  filter(col1%%5==0)
+#取模操作是%，取余操作是%%
+
+which(df$col1 %% 5 == 0) 
+
+#验证之后相等
+df[which(df$col1 %% 5 == 0) ,]
+col1 col2 col3
+50	30	0.4609162		
+25	45	-0.4456620		
+90	50	1.2240818		
+95	85	-1.9666172	
+```
+
+- 选取满足条件的索引，通常用途还是用来选出满足条件的行，不兜圈子做法：
+
+```{r}
+df %>% 
+  filter(col1 %% 5 == 0)
+```
+
+
+### 题目92（数据计算）：计算第1列的1阶差分
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#所谓差分其实就是后-前（也就是当前-前一行），实际上就是时间序列操作，参考第76题
+#lead为前移，lag为后移，所以我们当前的数据col1，然后要计算差分的话一般是要将数据移动到同一行中才能使用列var之间的运算做减法，所以我们将前一行的历史数据向后移动，即lag数据列，这样当前列-lag数据列就是当前-之前的操作了
+
+df %>% 
+  mutate(diff1 = col1 - lag(col1))  #第一行是NA
+
+#或者使用lead
+df %>% 
+  mutate(diff1 = lead(col1) - col1)  #最后一行是NA
+#综上，结合lead以及lag的数据之后可以获取首尾+全部数据的查分了
+
+#或者使用diff函数,也是迭代之后lag的向量列
+?diff
+```
+
+**注：**若只是要数值，用`diff(df$col1)`即可。 
+
+
+### 题目93（数据操作）：将col1, col2, col3三列顺序颠倒
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#顺序颠倒，并没有涉及到对顺序的复杂操作，所以只需要rev即可
+?rev
+#实际上我们知道，选择列呈现的顺序可以直接在select中设置，比如说设置成col3：col1的顺序即可
+names(df) #"col1" "col2" "col3"
+rev(names(df)) #"col3" "col2" "col1" 按照这个顺序呈现
+
+df %>% 
+  select(rev(names(df)))
+
+?dplyr::relocate  #或者进一步是用这个
+```
+
+**注：**更灵活的调整列序，dplyr 1.0提供的`relocate()`函数。
+
+### 题目94（数据操作）：提取第一列位置在1,10,15的数
+
+**难度：**$\star$
+
+**代码及运行结果：**
+
+```{r}
+#实际上是先对列再对行的操作，先选第1列，再挑选行数为1,10,15的行
+#对列的操作其实挺有限的，只有select、summarise、mutate等，本质上只有select
+#但是行有filter以及slice
+
+df%>%
+  select(col1)%>%
+  filter(rownames(.) %in% c(1,10,15))
+#反过来先选行再选列也可以
+df%>% 
+  filter(rownames(.) %in% c(1,10,15))%>%
+  select(col1)
+ 
+
+df%>%
+  select(col1)%>%
+  filter(rownames(.) == c(1,10,15))  #但是使用==结果会有偏差，只有2个值
+df%>%
+  filter(rownames(.) == c(1,10,15)) %>% 
+  select(col1)   #但是还是有问题
+
+#本质上去看  
+rownames(df)== c(1,10,15) #只有2个true，所以问题出在这里，不能使用==比较
+rownames(df)%in% c(1,10,15) #有3个true
+
+#！！！暂时问题没有解决，但是总之两个向量数据比较的时候，多用%in%，少用==
+
+df%>%
+  select(col1)%>%
+  slice(1,10,15)
+
+#或者直接用数字下标index索引，也就是最原始的df方法
+df[c(1,10,15), 1]
+```
+
+
+### 题目95（数据操作）：查找第一列的局部最大值位置
+
+**难度：**$\star\star\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#找最值好说，直接max或者min，但是找局部极值，又是差分的离散数据（不好微分），按照下面提示，也只能从查分角度来逼近微分了，所以找了相邻的1前1后数据，然后做起了查分，依据符号进行逻辑判断
+
+#可以仅仅通过差分的逻辑符号判断，然后整体操作的话本质上是对行（先列候行）
+df%>%
+  select(col1)%>%
+  filter(.-lag(.) >0 & .-lead(.)>0 )  #这里尝试使用.x，但是不行，后来使用.指代
+
+#或者可以不传入col1，直接在逻辑判断中使用col1（不进行指代）
+df%>%
+  filter(col1-lag(col1) >0 & col1-lead(col1)>0 ) #然后后面可以加1个select col1
+
+?sign #实际上就是对结果的正负性进行编码，+为1，-为-1，等于为0
+#所以下面寻找符号为2的,对原始代码进行了修改
+df %>% 
+  mutate(diff = sign(col1 - lag(col1)) + sign(col1 - lead(col1)))%>%
+  filter(diff == 2)
+```
+
+- 不兜圈子做法：
+
+```{r}
+df %>% 
+  mutate(diff = sign(col1 - lag(col1)) + sign(col1 - lead(col1))) %>% 
+  filter(diff == 2)
+```
+
+ 
+### 题目96（数据计算）：按行计算df每一行的均值
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+rowMeans(df)    # 或者apply(df, 1, mean)
+?apply 
+apply(df, 1, mean) #参数1意思就是按照行执行函数
+
+# 或者
+df %>% 
+  mutate(row_avg = pmap_dbl(., ~ mean(c(...))))
+```
+
+ 
+### 题目97（数据计算）：对第二列计算步长为3的移动平均值
+
+*难度：**$\star\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#参考题70
+df %>%
+  mutate(avg_3 = slide_dbl(col2, mean, .before = 1, .after = 1))
+```
+
+ 
+### 题目98（数据计算）：按第三列值的大小升序排列
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+df %>% 
+  arrange(col3)
+```
+
+ 
+### 题目99（数据操作）：按第一列大于50的数修改为"高"
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#实际上就是修改列值，可以使用mutate修改旧列，或者新创新列
+#修改的条件实际上就是一个逻辑判断语句，可以使用ifelse写在一句中
+?ifelse(test,yes,no)
+df%>%
+  mutate(col1=ifelse(col1>50,"高",col1))
+
+df %>% 
+  mutate(col1 = ifelse(col1 > 50, "高", col1))  
+```
+
+### 题目100（数据计算）：计算第一列与第二列的欧氏距离
+
+**难度：**$\star\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#假设一共有N列，那就是两个N维的矩阵/向量之间的差值平方和取平方根
+sqrt(sum((df$col1-df$col2)^2))
+
+
+|>  #也是一个管道符号
+(df$col1 - df$col2) ^ 2 |> sum() |> sqrt()
+
+#两个管道符的区别仅仅在于前一个结果的输出是作为第一个参数还是作为最后一个参数传入，%>%是作为第一个参数传入管道下流，但是|>是作为最后一个参数
+#当然，此处是不影响的
+(df$col1 - df$col2) ^ 2 %>% sum() %>% sqrt()
+```
+ 
+
+## Part V 高级
+
+### 题目101（数据读取）：从csv文件中读取指定数据：读取前10行， positionName和salary列
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+?read_csv
+read_csv("C:/Users/ZHT/Downloads/数据1_101-120涉及.csv",col_names=T,col_select = c(positionName, salary),n_max=10)
+
+read_csv("data/数据1_101-120涉及.csv", n_max = 10,
+         col_select = c(positionName, salary)) 
+```
+
+### 题目102（数据读取）：从csv文件中读取数据，将薪资大于10000的改为"高"
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#按照常理来说是将csv文件读入，构建tibble对象df之后再使用mutate等进行操作，当然显而易见上述操作也可以通过管道符号直接连接在一起，当然需要先查看列var
+read_csv("C:/Users/ZHT/Downloads/数据1_101-120涉及.csv",col_names=T)%>%names()
+薪资水平 %in% read_csv("C:/Users/ZHT/Downloads/数据1_101-120涉及.csv",col_names=T)%>%names()  #错误: 找不到对象'薪资水平'
+#但是没有发现有薪资水平这一列，只有salary，上述读取的是数据1
+#按照提示发现读取的是数据2
+
+#当然数据1其实也能处理，"salary"  
+read_csv("C:/Users/ZHT/Downloads/数据1_101-120涉及.csv",col_names=T)%>%
+  mutate(salary=ifelse(salary>10000,"高",salary))%>%select(salary)
+
+
+#如果是读取数据2，同理
+read_csv("C:/Users/ZHT/Downloads/数据2_101-120涉及.csv",col_names=T)%>%
+  mutate(薪资水平=ifelse(薪资水平>10000,"高",薪资水平))%>%select(薪资水平)
+#当然按照提示是将其转换为非高既低
+df = read_csv("C:/Users/ZHT/Downloads/数据2_101-120涉及.csv") %>% 
+  mutate(薪资水平 = if_else(薪资水平 > 10000, "高", "低"))
+
+df = read_csv("data/数据2_101-120涉及.csv") %>% 
+  mutate(薪资水平 = if_else(薪资水平 > 10000, "高", "低"))
+```
+
+ 
+### 题目103（数据操作）：从df中对薪资水平每隔20行进行抽样
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#首先是对行抽样，所以使用行相关的操作函数，要么filter要么slice
+#另外就是抽样，其实也涉及到时间序列相关的操作了，主要是有每隔20行的条件，其实就是等差取样/等步长取样了，涉及到步长其实就可以使用seq函数了
+#参考题目83
+?seq(from行切片起点,to行切片终点,by行切片步长,length.out行切片数目)
+#所以实际上传递的参数就是行数（行下标/切片）
+
+df %>% 
+  slice(seq(1, n(), by = 20))  
+```
+
+ 
+### 题目104（数据操作）：取消使用科学记数法
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#
+df
+
+set.seed(123)
+?runif #随机生成0-1之间满足均匀分布的随机数，为了抽样出科学计数法的示例数据，对0-1之间的小数进行了高次10幂
+df = tibble(val = runif(10) ^ 10)
+
+?scales::number #数值格式化函数
+# 三位小数的精度,主要是accuracy参数
+df %>% 
+  mutate(val = scales::number(val, accuracy = 0.001))
+?scales::scientific
+# 科学记数法，主要是digits参数（指数表示法前面的有效数字位数）
+df %>% 
+  mutate(val =  scales::scientific(val, 2))
+```
+
+
+### 题目105（数据操作）：将上一题的数据转换为百分数
+
+**难度：**$\star\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#从小数转换为百分数，
+df%>%
+  mutate(val=scales::number(val,accuracy=0.001))%>%
+  mutate(`val_百分数(%)`=val*100)
+#! 二进列运算符中有非数值参数,发现从原来的科学计数法转换为小数之后数据类型从dbl变成了chr
+df%>%
+  mutate(val=as.numeric(scales::number(val,accuracy=0.001)))%>%
+  mutate(`val_百分数(%)`=val*100)
+#如果不在列名上处理，可以使用paste0
+?as.numeric
+
+#或者直接使用scale中的转换函数,还是accuracy参数
+?scales::percent
+df %>% 
+  mutate(val = scales::percent(val, 0.01))
+```
+
+
+### 题目106（数据操作）：查找上一题数据中第3大值的行号
+
+**难度：**$\star\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#注意arrange是从上到下查看，然后默认是升序
+df%>%arrange(-val)%>%slice(3)  #能切出值，但是行号不行
+df%>%arrange(-val)%>%slice(3)%>%rownames()  #不行，切出数据的时候就是一个新tibble
+
+#获取某一行的行号
+
+#提示中是直接使用order作为排序筛选数据，没有使用arrange 
+?order #返回的是排序之后的行号
+order(df$val, decreasing = TRUE)[3]
+```
+
+- 不兜圈子做法：
+
+```{r}
+df %>% 
+  arrange(-val) %>% 
+  slice(3)
+```
+
+
+### 题目107（数据操作）：反转df的行
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#实际上涉及到df的行操作，也就是行号的反转，可以使用rev
+#实际上和select一样，按照行号顺序来设置显示顺序，至于对行的操作有filter以及slice，但是涉及到行号的就只有slice了
+?rev #只接受vector输入
+df%>%
+  slice(rev(1:n()))
+
+df
+
+df %>% 
+  slice(rev(1:n()))   # 或者df[nrow(df):1,]
+```
+
+ 
+### 题目108（数据连接：全连接）：根据多列匹配合并数据，保留df1和df2的观测
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+df1 = tibble(
+  key1 = c("K0","K0","K1","K2"),
+  key2 = c("K0","K1","K0","K1"),
+  A = str_c('A', 0:3),
+  B = str_c('B', 0:3))
+df1
+df2 = tibble(
+  key1 = c("K0","K1","K1","K2"),
+  key2 = str_c("K", rep(0,4)),
+  C = str_c('C', 0:3),
+  D = str_c('D', 0:3))
+df2
+
+#全连接full_join
+?full_join
+df1 %>% 
+  full_join(df2, by = c("key1", "key2"))
+```
+
+ 
+### 题目109（数据连接：左连接）：根据多列匹配合并数据，只保留df1的观测
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#区别在于看谁的键key，left_join是看左边的键，所以保留左边所有的行（键值对），右边有匹配的键行才保留
+#(x,y,by=)
+#full_join()
+#left_join()
+#right_join()
+#inner_join()
+#semi_join()
+#anti_join()
+
+
+df1 %>% 
+  left_join(df2, by = c("key1", "key2"))
+```
+
+**注：**dplyr包还提供了右连接：`right_join()`，内连接：`inner_join()`，以及用于过滤的连接：半连接：`semi_join()`，反连接：`anti_join()`.
+
+### 题目110（数据处理）：再次读取数据1并显示所有列
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+df = read_csv("data/数据1_101-120涉及.csv")
+glimpse(df)
+
+
+df<-read_csv("C:/Users/ZHT/Downloads/数据1_101-120涉及.csv",col_names=T)
+glimpse(df)
+```
+
+
+### 题目111（数据操作）：查找secondType与thirdType值相等的行号
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+which(df$secondType == df$thirdType)
+```
+ 
+- 不兜圈子：
+
+```{r}
+#filter对行操作
+df %>% 
+  filter(secondType == thirdType)
+```
+
+
+### 题目112（数据操作）：查找薪资大于平均薪资的第三个数据
+
+**难度：**$\star\star\star$
+
+**代码及运行结果：**
+
+```{r}
+names(df)
+df%>%
+  filter(salary>mean(salary))%>%
+  arrange(-salary)%>%
+  slice(3)
+#我这里其实还降序了，找出第三大的数据
+```
+
+```{r}
+df %>% 
+  filter(salary > mean(salary)) %>% 
+  slice(3)
+```
+
+ 
+### 题目113（数据操作）：将上一题数据的salary列开根号
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+df %>% 
+  mutate(salary_sqrt = sqrt(salary)) %>% 
+  select(salary, salary_sqrt)
+```
+
+
+### 题目114（数据操作）：将上一题数据的linestation列按_拆分
+
+**难度：**$\star\star\star$
+
+**代码及运行结果：**
+
+```{r}
+df%>%select(linestaion)
+# 4号线_城星路;4号线_市民中心;4号线_江锦路,这一列数据格式就是这样，分为路线_地点站，然后中间用_符号分隔开
+#将1列数据拆分开为多列数据使用函数separate函数，可以参考23题
+?separate
+#remove = FALSE  remove参数就是是否要删除原来拆分的列
+
+ df %>% 
+  separate(linestaion, into = c("line", "station"), sep = "_", remove = FALSE) %>% 
+  select(linestaion, line, station)
+#显然一行中有很多linestation数据，所以应该先按照;分割，再按照_分割
+#下面操作按照多个separate嵌套进行
+ df %>% 
+  separate(linestaion, into = c("linestaion1", "linestaion2"), sep = ";", remove = FALSE) %>% 
+  separate(linestaion1, into = c("line1", "station1"), sep = "_", remove = FALSE)%>%
+  separate(linestaion2, into = c("line2", "station2"), sep = "_", remove = FALSE)%>%
+   select(linestaion,linestaion1,line1,station1,linestaion2,line2,station2)
+```
+
+**注：**正常需要先按“;”分割，再分别按“-”分割。
+
+### 题目115（数据查看）：查看上一题数据一共有多少列
+
+**难度：**$\star$
+
+**代码及运行结果：**
+
+```{r}
+# df%>%colnames()%>%n(.) error
+ncol(df)
+nrow(df)
+dim(df) #105  53
+```
+ 
+
+### 题目116（数据操作）：提取industryField列以"数据"开头的行
+
+**难度：**$\star\star$
+
+**代码及运行结果：**
+
+```{r}
+library(stringr)
+?str_detect(string,pattern) #此处要使用正则表达式，参考stringr的cheatsheet，有正则式的sample demo
+#可以参考https://github.com/rstudio/cheatsheets/blob/main/strings.pdf
+
+df %>% 
+  filter(str_detect(industryField, "^数据"))
+```
+
+ 
+### 题目117（数据分组汇总）：以salary score和positionID做数据透视表
+
+**难度：**$\star\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#按照positionId为分组指标，查看每个分组中的平均薪水，平均得分
+df %>% 
+  group_by(positionId) %>% 
+  summarise(salary_avg = mean(salary), score_avg = mean(score))
+```
+
+ 
+### 题目118（数据分组汇总）：同时对salary、score两列进行汇总计算
+
+**难度：**$\star\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#参考第75题
+##across列就是(col,fun)，就是循环结构
+df %>% 
+  summarise(across(c(salary, score), 
+                   list(sum=sum, mean=mean, min=min), 
+                   .names = "{.col}_{.fn}"))
+
+?across
+#help文档中{.col}指代原来选择的列，{.fn}指代要应用的函数，都是参数指代名字
+
+#list(sum=sum, mean=mean, min=min)：这是一个函数列表，指定了要对所选列应用的函数。这里应用了三个函数：sum（求和）、mean（平均值）和 min（最小值）。
+#.names="{.col}_{.fn}"：这是一个命名参数，用于指定输出列的命名规则。{.col} 代表原始列名，{.fn} 代表应用的函数名。因此，输出的列名将是 salary_sum、salary_mean、salary_min、score_sum、score_mean 和 score_min。
+
+#当然，可以分组之后再进行统计
+```
+
+**注：**若要分组再这样汇总，前面加上`group_by(var)`即可。
+
+### 题目119（数据分组汇总）：同时对不同列进行不同的汇总计算：对salary求平均，对score求和
+
+**难度：**$\star\star\star$
+
+**代码及运行结果：**
+
+```{r}
+df %>% 
+  summarise(salary_avg = mean(salary),
+            score_sum = sum(score))
+```
+
+**注：**若要分组再这样汇总，前面加上`group_by(var)`即可。
+
+### 题目120（数据分组汇总）：计算并提取平均薪资最高的区
+
+**难度：**$\star\star\star\star$
+
+**代码及运行结果：**
+
+```{r}
+#先按照区进行分组，然后每个区中计算平均薪资指标，计算之后再使用slice取出最大的行
+df %>% 
+  group_by(district) %>% 
+  summarise(salary_avg = mean(salary)) %>% 
+  slice_max(salary_avg)   # 默认n = 1
+```
+
+
